@@ -29,7 +29,7 @@ const config = {
 
     // MODERAÇÃO
     moderation: {
-        badWords: ['golpe', 'fraude', 'pix', 'dinheiro fácil', 'milionário', 'vagas', 'oportunidade','picareta','golpista','salafrario','pessoa ruim','sem alma','bixo ruim','gordo','pançudo','leilão', 'carro ruim', 'sem margem'],
+        badWords: ['golpe','ladrao','safado', 'fraude', 'pix', 'dinheiro fácil', 'milionário', 'vagas', 'oportunidade','picareta','golpista','salafrario','pessoa ruim','sem alma','bixo ruim','gordo','pançudo','leilão', 'carro ruim', 'sem margem'],
         blockedLinkHosts: ['bit.ly', 'cutt.ly', 'goo.gl', 'tinyurl.com', 'linktr.ee'],
         warnMessage: 'Olá! A sua mensagem foi removida porque contém conteúdo não permitido. Por favor, evite compartilhar links externos ou palavras associadas a spam para manter a segurança do grupo.',
     },
