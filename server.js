@@ -18,8 +18,38 @@ const config = {
     groupId: process.env.GROUP_ID || '120363421874776025@g.us',
     adminNumber: process.env.ADMIN_NUMBER || '559189204297@c.us',
     
-    // Mensagens
-    welcomeMessage: 'Bem-vindo ao GRUPO VIP - AUTOGIRO! 🎉\nVocê agora tem acesso ao conteúdo exclusivo.',
+    // Sistema de mensagens expandido
+    messages: {
+        welcome: {
+            group: 'Bem-vindo ao GRUPO VIP - AUTOGIRO! 🎉\nVocê agora tem acesso ao conteúdo exclusivo.',
+            private: `🎉 Bem-vindo(a) à AutoGiro, {name}!\n\n! 🎉
+
+Agora você faz parte do Grupo VIP AutoGiro, onde vai ter acesso exclusivo às melhores oportunidades do mercado automotivo:
+✅ Ofertas diárias de carros e motos com até 40% abaixo da FIPE
+✅ Negócios diretos com bancos, financeiras e fontes primárias
+✅ Laudo cautelar em todos os veículos
+✅ Suporte personalizado para te ajudar a escolher a melhor negociação
+
+📌 Próximos passos:
+1️⃣ Fique de olho no grupo — as oportunidades chegam primeiro aqui.
+2️⃣ Quando encontrar um veículo interessante, chame o Admin no privado para receber fotos, vídeos e laudo completo.
+3️⃣ Aproveite o acesso privilegiado e negocie antes de todo mundo.
+
+Seja bem-vindo(a) à fonte que ninguém tem acesso. Aqui, quem está dentro, lucra! 💰`,
+            groupMention: true, // Se deve mencionar o usuário no grupo
+            sendPrivate: true,  // Se deve enviar mensagem privada
+            sendInGroup: true   // Se deve enviar mensagem no grupo
+        },
+        expiring: `⚠️ Olá {name}!\n\nSua assinatura está expirando em breve.\n\n⏰ Restam apenas {credits} créditos\n📅 Expira em: {expirationDate}\n\n🔄 Renove agora para continuar com acesso ao grupo VIP!`,
+        expired: `❌ Olá {name}!\n\nSua assinatura expirou e você foi removido do grupo VIP.\n\n📅 Expirou em: {expirationDate}\n\n🔄 Renove sua assinatura para voltar a ter acesso ao conteúdo exclusivo!`
+    },
+    
+    // Configurações de delay para evitar spam
+    delays: {
+        betweenMessages: 2000,      // 2 segundos entre mensagens
+        afterAddingToGroup: 3000,   // 3 segundos após adicionar ao grupo
+        beforePrivateMessage: 1000  // 1 segundo antes da mensagem privada
+    },
     
     // Hubla
     hubla: {
@@ -55,6 +85,8 @@ const stats = {
     messagesDeleted: 0,
     usersWarned: 0,
     spamBlocked: 0,
+    welcomeMessagesSent: 0,
+    privateMessagesSent: 0,
     startTime: Date.now()
 };
 
@@ -119,7 +151,10 @@ function saveConfig() {
         const configData = {
             groupId: config.groupId,
             adminNumber: config.adminNumber,
-            welcomeMessage: config.welcomeMessage,
+            messages: config.messages,
+            delays: config.delays,
+            hubla: config.hubla,
+            moderation: config.moderation,
             updatedAt: new Date()
         };
         
@@ -137,7 +172,10 @@ function loadConfig() {
             const data = JSON.parse(fs.readFileSync('./data/config.json', 'utf8'));
             config.groupId = data.groupId || config.groupId;
             config.adminNumber = data.adminNumber || config.adminNumber;
-            config.welcomeMessage = data.welcomeMessage || config.welcomeMessage;
+            config.messages = { ...config.messages, ...data.messages };
+            config.delays = { ...config.delays, ...data.delays };
+            config.hubla = { ...config.hubla, ...data.hubla };
+            config.moderation = { ...config.moderation, ...data.moderation };
             console.log('📋 Configurações carregadas do arquivo');
         }
     } catch (error) {
@@ -185,6 +223,20 @@ function validateHublaWebhook(payload, signature) {
         .update(payload)
         .digest('hex');
     return `sha256=${hash}` === signature;
+}
+
+// Função para formatar mensagens com variáveis dinâmicas
+function formatMessage(template, userData) {
+    const { name, expiresAt, credits, email } = userData;
+    const expirationDate = new Date(expiresAt).toLocaleDateString('pt-BR');
+    const daysRemaining = Math.ceil((new Date(expiresAt) - new Date()) / (1000 * 60 * 60 * 24));
+    
+    return template
+        .replace(/{name}/g, name)
+        .replace(/{expirationDate}/g, expirationDate)
+        .replace(/{credits}/g, credits)
+        .replace(/{email}/g, email)
+        .replace(/{daysRemaining}/g, daysRemaining);
 }
 
 // Sistema de persistência de dados
@@ -238,6 +290,103 @@ function addLog(action, details) {
     }
 }
 
+// Função melhorada para enviar mensagens de boas-vindas
+async function sendWelcomeMessages(phone, userData) {
+    const { name } = userData;
+    const groupJid = formatGroupId(config.groupId);
+    
+    try {
+        // Aguardar um pouco após adicionar ao grupo
+        await new Promise(resolve => setTimeout(resolve, config.delays.afterAddingToGroup));
+        
+        // 1. Mensagem no grupo (se habilitada)
+        if (config.messages.welcome.sendInGroup) {
+            let groupMessage = config.messages.welcome.group;
+            
+            // Se deve mencionar o usuário no grupo
+            if (config.messages.welcome.groupMention) {
+                groupMessage = `${groupMessage}\n\nBem-vindo @${phone.split('@')[0]}! 👋`;
+                
+                await rateLimiter.execute(async () => {
+                    await sock.sendMessage(groupJid, { 
+                        text: groupMessage,
+                        mentions: [phone]
+                    });
+                });
+            } else {
+                groupMessage = `${groupMessage}\n\nBem-vindo ${name}! 👋`;
+                
+                await rateLimiter.execute(async () => {
+                    await sock.sendMessage(groupJid, { text: groupMessage });
+                });
+            }
+            
+            stats.welcomeMessagesSent++;
+            addLog('WELCOME_GROUP_SENT', `Mensagem de boas-vindas enviada no grupo para ${name}`);
+        }
+        
+        // Delay entre mensagens
+        await new Promise(resolve => setTimeout(resolve, config.delays.betweenMessages));
+        
+        // 2. Mensagem privada (se habilitada)
+        if (config.messages.welcome.sendPrivate) {
+            const privateMessage = formatMessage(config.messages.welcome.private, userData);
+            
+            await rateLimiter.execute(async () => {
+                await sock.sendMessage(phone, { text: privateMessage });
+            });
+            
+            stats.privateMessagesSent++;
+            addLog('WELCOME_PRIVATE_SENT', `Mensagem privada de boas-vindas enviada para ${name}`);
+        }
+        
+        return true;
+        
+    } catch (error) {
+        addLog('WELCOME_ERROR', `Erro ao enviar boas-vindas para ${name}: ${error.message}`);
+        console.error('❌ Erro ao enviar mensagens de boas-vindas:', error);
+        return false;
+    }
+}
+
+// Função para enviar aviso de expiração melhorada
+async function sendExpirationWarning(phone, userData) {
+    if (!config.hubla.sendExpirationWarnings) return false;
+    
+    try {
+        const warningMessage = formatMessage(config.messages.expiring, userData);
+        
+        await rateLimiter.execute(async () => {
+            await sock.sendMessage(phone, { text: warningMessage });
+        });
+        
+        addLog('EXPIRATION_WARNING_SENT', `Aviso de expiração enviado para ${userData.name}`);
+        return true;
+        
+    } catch (error) {
+        addLog('EXPIRATION_WARNING_ERROR', `Erro ao enviar aviso para ${userData.name}: ${error.message}`);
+        return false;
+    }
+}
+
+// Função para enviar mensagem de remoção
+async function sendRemovalMessage(phone, userData, reason) {
+    try {
+        const removalMessage = formatMessage(config.messages.expired, userData);
+        
+        await rateLimiter.execute(async () => {
+            await sock.sendMessage(phone, { text: removalMessage });
+        });
+        
+        addLog('REMOVAL_MESSAGE_SENT', `Mensagem de remoção enviada para ${userData.name}`);
+        return true;
+        
+    } catch (error) {
+        addLog('REMOVAL_MESSAGE_ERROR', `Erro ao enviar mensagem de remoção para ${userData.name}: ${error.message}`);
+        return false;
+    }
+}
+
 // Adicionar membro ao grupo com retry
 async function addMemberToGroup(phone, name, retries = 0) {
     return rateLimiter.execute(async () => {
@@ -265,11 +414,6 @@ async function addMemberToGroup(phone, name, retries = 0) {
             if (result && result[0] && result[0].status !== '200') {
                 throw new Error(`Falha ao adicionar: ${result[0].status}`);
             }
-            
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const welcomeMsg = `${config.welcomeMessage}\n\nOlá ${name}! 👋`;
-            await sock.sendMessage(groupJid, { text: welcomeMsg });
             
             addLog('MEMBRO_ADICIONADO', `${name} (${phone})`);
             stats.activeMembersAdded++;
@@ -577,7 +721,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ==================== WEBHOOK HUBLA ====================
+// ==================== WEBHOOK HUBLA ATUALIZADO ====================
 app.post('/webhook/hubla', async (req, res) => {
     try {
         const signature = req.headers['hubla-signature'] || req.headers['x-hubla-signature'];
@@ -612,7 +756,7 @@ app.post('/webhook/hubla', async (req, res) => {
             const expiresAt = new Date();
             expiresAt.setDate(expiresAt.getDate() + credits);
             
-            members.set(phone, {
+            const userData = {
                 name,
                 email,
                 expiresAt,
@@ -620,13 +764,18 @@ app.post('/webhook/hubla', async (req, res) => {
                 credits,
                 status: 'active',
                 addedAt: new Date()
-            });
+            };
             
+            members.set(phone, userData);
             stats.totalMembers = members.size;
             
-            const success = await addMemberToGroup(phone, name);
+            // Adicionar ao grupo
+            const addSuccess = await addMemberToGroup(phone, name);
             
-            if (success) {
+            if (addSuccess) {
+                // Enviar mensagens de boas-vindas
+                await sendWelcomeMessages(phone, userData);
+                
                 addLog('ASSINATURA_ATIVADA', `${name} - ${credits} créditos - Expira em: ${expiresAt.toLocaleDateString('pt-BR')}`);
             }
         }
@@ -638,39 +787,39 @@ app.post('/webhook/hubla', async (req, res) => {
             const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Cliente';
             const credits = subscription.credits || 0;
             
-            addLog('ASSINATURA_EXPIRANDO', `${name} - Restam ${credits} créditos`);
-            
-            await notifyAdmin(`⚠️ *Assinatura expirando*\n\nNome: ${name}\nTelefone: ${phone}\nCréditos restantes: ${credits}`);
-            
-            if (config.hubla.sendExpirationWarnings && phone) {
-                try {
-                    if (whatsappReady && sock) {
-                        const warningMsg = `⚠️ Olá ${name}!\n\nSua assinatura está expirando. Restam apenas ${credits} créditos.\n\nRenove para continuar tendo acesso ao grupo VIP!`;
-                        await rateLimiter.execute(async () => {
-                            await sock.sendMessage(phone, { text: warningMsg });
-                        });
-                        addLog('AVISO_ENVIADO', `Aviso de expiração enviado para ${name}`);
-                    }
-                } catch (error) {
-                    addLog('ERRO_AVISO', `Erro ao enviar aviso para ${name}: ${error.message}`);
-                }
+            const memberData = members.get(phone);
+            if (memberData) {
+                // Enviar aviso personalizado
+                await sendExpirationWarning(phone, {
+                    ...memberData,
+                    credits // Usar créditos atuais do webhook
+                });
             }
+            
+            addLog('ASSINATURA_EXPIRANDO', `${name} - Restam ${credits} créditos`);
+            await notifyAdmin(`⚠️ *Assinatura expirando*\n\nNome: ${name}\nTelefone: ${phone}\nCréditos restantes: ${credits}`);
         }
         
         else if (type === 'subscription.deactivated') {
             const user = event.user;
-            const subscription = event.subscription;
             const phone = formatPhone(user.phone);
             const name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Cliente';
-            const subscriptionId = subscription.id;
             
-            if (phone && members.has(phone)) {
+            const memberData = members.get(phone);
+            
+            if (phone && memberData) {
+                // Enviar mensagem de remoção antes de remover do grupo
+                await sendRemovalMessage(phone, memberData, 'Assinatura desativada');
+                
+                // Aguardar antes de remover
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
                 members.delete(phone);
                 stats.totalMembers = members.size;
                 
                 await removeMemberFromGroup(phone, name, 'Assinatura desativada - créditos esgotados');
                 
-                addLog('ASSINATURA_DESATIVADA', `${name} removido - ID: ${subscriptionId}`);
+                addLog('ASSINATURA_DESATIVADA', `${name} removido - Mensagem de despedida enviada`);
             }
         }
         
@@ -732,15 +881,17 @@ app.get('/api/config', (req, res) => {
     res.json({
         groupId: config.groupId,
         adminNumber: config.adminNumber,
-        welcomeMessage: config.welcomeMessage,
+        messages: config.messages,
+        delays: config.delays,
+        hubla: config.hubla,
         whatsappConnected: whatsappReady
     });
 });
 
-// Endpoint para atualizar configurações (CORRIGIDO)
+// Endpoint para atualizar configurações básicas
 app.post('/api/config', (req, res) => {
     try {
-        const { groupId, adminNumber, welcomeMessage } = req.body;
+        const { groupId, adminNumber } = req.body;
         
         const oldGroupId = config.groupId;
         
@@ -750,10 +901,6 @@ app.post('/api/config', (req, res) => {
         
         if (adminNumber) {
             config.adminNumber = adminNumber.includes('@c.us') ? adminNumber : `${adminNumber}@c.us`;
-        }
-        
-        if (welcomeMessage) {
-            config.welcomeMessage = welcomeMessage;
         }
         
         // Se mudou o grupo, atualizar logs
@@ -776,7 +923,8 @@ app.post('/api/config', (req, res) => {
             config: {
                 groupId: config.groupId,
                 adminNumber: config.adminNumber,
-                welcomeMessage: config.welcomeMessage
+                messages: config.messages,
+                delays: config.delays
             },
             groupChanged: oldGroupId !== config.groupId
         });
@@ -787,7 +935,46 @@ app.post('/api/config', (req, res) => {
     }
 });
 
-// Endpoint para listar grupos disponíveis (CORRIGIDO)
+// Endpoint para configurar mensagens personalizadas
+app.post('/api/config/messages', (req, res) => {
+    try {
+        const { welcome, expiring, expired, delays } = req.body;
+        
+        if (welcome) {
+            config.messages.welcome = { ...config.messages.welcome, ...welcome };
+        }
+        
+        if (expiring) {
+            config.messages.expiring = expiring;
+        }
+        
+        if (expired) {
+            config.messages.expired = expired;
+        }
+        
+        if (delays) {
+            config.delays = { ...config.delays, ...delays };
+        }
+        
+        saveConfig();
+        addLog('MESSAGES_CONFIG_UPDATED', 'Configurações de mensagens atualizadas');
+        
+        res.json({
+            success: true,
+            message: 'Configurações de mensagens atualizadas',
+            config: {
+                messages: config.messages,
+                delays: config.delays
+            }
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro ao atualizar configurações de mensagens:', error);
+        res.status(500).json({ error: 'Erro ao atualizar configurações' });
+    }
+});
+
+// Endpoint para listar grupos disponíveis
 app.get('/api/groups', async (req, res) => {
     try {
         if (!whatsappReady || !sock) {
@@ -910,6 +1097,65 @@ app.get('/api/groups', async (req, res) => {
     }
 });
 
+// Endpoint para testar mensagens de boas-vindas
+app.post('/api/test/welcome', async (req, res) => {
+    try {
+        const { phone, name = 'Usuário Teste' } = req.body;
+        
+        if (!phone) {
+            return res.status(400).json({ error: 'Telefone é obrigatório' });
+        }
+        
+        const formattedPhone = formatPhone(phone);
+        if (!formattedPhone) {
+            return res.status(400).json({ error: 'Telefone inválido' });
+        }
+        
+        const testUserData = {
+            name,
+            email: 'teste@exemplo.com',
+            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+            credits: 30,
+            status: 'active',
+            addedAt: new Date()
+        };
+        
+        const success = await sendWelcomeMessages(formattedPhone, testUserData);
+        
+        res.json({
+            success,
+            message: success ? 'Mensagens de teste enviadas' : 'Erro ao enviar mensagens',
+            phone: formattedPhone,
+            userData: testUserData
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro no teste de mensagens:', error);
+        res.status(500).json({ error: 'Erro ao testar mensagens' });
+    }
+});
+
+// Variáveis de template disponíveis
+const TEMPLATE_VARIABLES = {
+    '{name}': 'Nome do usuário',
+    '{expirationDate}': 'Data de expiração (DD/MM/AAAA)',
+    '{credits}': 'Número de créditos',
+    '{email}': 'Email do usuário',
+    '{daysRemaining}': 'Dias restantes até expirar'
+};
+
+// Endpoint para obter variáveis de template
+app.get('/api/template-variables', (req, res) => {
+    res.json({
+        variables: TEMPLATE_VARIABLES,
+        examples: {
+            welcome: "Olá {name}! Sua assinatura expira em {expirationDate} com {credits} créditos.",
+            expiring: "Atenção {name}! Restam {daysRemaining} dias e {credits} créditos.",
+            expired: "Olá {name}, sua assinatura expirou em {expirationDate}."
+        }
+    });
+});
+
 // ==================== ENDPOINTS DE DEBUG E TESTE ====================
 
 // Endpoint para testar moderação
@@ -1020,6 +1266,12 @@ setInterval(async () => {
     }
     
     for (const member of expiredMembers) {
+        // Enviar mensagem de despedida antes de remover
+        await sendRemovalMessage(member.phone, member, 'Assinatura expirada automaticamente');
+        
+        // Aguardar antes de remover
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
         members.delete(member.phone);
         stats.totalMembers = members.size;
         
@@ -1057,7 +1309,7 @@ setInterval(async () => {
     }
     
     if (activeCount > 0 || expiredCount > 0) {
-        const report = `📊 *Relatório automático*\n\n👥 Membros ativos: ${activeCount}\n⚠️ Expirando em 3 dias: ${expiringSoon}\n❌ Expirados: ${expiredCount}\n\n🤖 Uptime: ${Math.floor((Date.now() - stats.startTime) / 1000 / 60)} minutos`;
+        const report = `📊 *Relatório automático*\n\n👥 Membros ativos: ${activeCount}\n⚠️ Expirando em 3 dias: ${expiringSoon}\n❌ Expirados: ${expiredCount}\n📨 Mensagens de boas-vindas enviadas: ${stats.welcomeMessagesSent}\n💬 Mensagens privadas enviadas: ${stats.privateMessagesSent}\n\n🤖 Uptime: ${Math.floor((Date.now() - stats.startTime) / 1000 / 60)} minutos`;
         await notifyAdmin(report);
     }
     
@@ -1080,13 +1332,15 @@ app.listen(PORT, () => {
     console.log(`📊 API Status: http://localhost:${PORT}/api/status`);
     console.log(`🎯 Grupo: ${config.groupId}`);
     console.log(`🛡️ Moderação ativa`);
+    console.log(`💬 Sistema de boas-vindas ativo`);
     console.log('=====================================');
-    console.log('🧪 Para testar moderação:');
-    console.log('   POST /api/test-moderation');
-    console.log('   GET /api/debug/moderation');
+    console.log('🧪 Para testar:');
+    console.log('   POST /api/test-moderation (Moderação)');
+    console.log('   POST /api/test/welcome (Boas-vindas)');
+    console.log('   GET /api/template-variables (Variáveis)');
     console.log('=====================================');
     
-    addLog('SISTEMA_INICIADO', `Sistema rodando na porta ${PORT} - Moderação ativa`);
+    addLog('SISTEMA_INICIADO', `Sistema rodando na porta ${PORT} - Moderação e boas-vindas ativas`);
 });
 
 startWhatsApp();
@@ -1121,6 +1375,8 @@ process.on('SIGINT', async () => {
     console.log(`   📡 Webhooks recebidos: ${stats.webhooksReceived}`);
     console.log(`   🗑️ Mensagens removidas: ${stats.messagesDeleted}`);
     console.log(`   🚫 Spam bloqueado: ${stats.spamBlocked}`);
+    console.log(`   💬 Boas-vindas enviadas: ${stats.welcomeMessagesSent}`);
+    console.log(`   📨 Mensagens privadas: ${stats.privateMessagesSent}`);
     
     saveMembers();
     saveConfig();
@@ -1140,5 +1396,9 @@ module.exports = {
     addLog, 
     formatPhone, 
     addMemberToGroup, 
-    removeMemberFromGroup 
+    removeMemberFromGroup,
+    sendWelcomeMessages,
+    sendExpirationWarning,
+    sendRemovalMessage,
+    formatMessage
 };
