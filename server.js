@@ -14,9 +14,9 @@ const cors = require('cors');
 
 // ==================== CONFIGURAÇÕES ====================
 const config = {
-    // WhatsApp
-    groupId: '120363421874776025@g.us', // Seu grupo
-    adminNumber: '559189204297@c.us', // Seu número para notificações
+    // Configurações dinâmicas (podem ser alteradas via frontend)
+    groupId: process.env.GROUP_ID || '120363421874776025@g.us',
+    adminNumber: process.env.ADMIN_NUMBER || '559189204297@c.us',
     
     // Mensagens
     welcomeMessage: 'Bem-vindo ao GRUPO VIP - AUTOGIRO! 🎉\nVocê agora tem acesso ao conteúdo exclusivo.',
@@ -36,7 +36,7 @@ const config = {
 
     // Rate Limiting
     rateLimiting: {
-        minDelay: 3000, // 3 segundos entre ações do WhatsApp
+        minDelay: 3000,
         maxRetries: 3,
         retryDelay: 5000
     }
@@ -61,6 +61,7 @@ const stats = {
 // ==================== VARIÁVEIS GLOBAIS ====================
 let sock;
 let whatsappReady = false;
+let currentQRCode = null;
 
 // ==================== CLASSE RATE LIMITER ====================
 class RateLimiter {
@@ -107,6 +108,42 @@ class RateLimiter {
 }
 
 const rateLimiter = new RateLimiter();
+
+// ==================== FUNÇÕES DE CONFIGURAÇÃO ====================
+function saveConfig() {
+    try {
+        if (!fs.existsSync('./data')) {
+            fs.mkdirSync('./data');
+        }
+        
+        const configData = {
+            groupId: config.groupId,
+            adminNumber: config.adminNumber,
+            welcomeMessage: config.welcomeMessage,
+            updatedAt: new Date()
+        };
+        
+        fs.writeFileSync('./data/config.json', JSON.stringify(configData, null, 2));
+        addLog('CONFIG_SAVED', 'Configurações salvas');
+    } catch (error) {
+        console.error('❌ Erro ao salvar configurações:', error);
+        addLog('ERRO_CONFIG', `Erro ao salvar configurações: ${error.message}`);
+    }
+}
+
+function loadConfig() {
+    try {
+        if (fs.existsSync('./data/config.json')) {
+            const data = JSON.parse(fs.readFileSync('./data/config.json', 'utf8'));
+            config.groupId = data.groupId || config.groupId;
+            config.adminNumber = data.adminNumber || config.adminNumber;
+            config.welcomeMessage = data.welcomeMessage || config.welcomeMessage;
+            console.log('📋 Configurações carregadas do arquivo');
+        }
+    } catch (error) {
+        console.error('❌ Erro ao carregar configurações:', error);
+    }
+}
 
 // ==================== FUNÇÕES DE UTILIDADE ====================
 
@@ -335,23 +372,24 @@ async function startWhatsApp() {
             const { connection, lastDisconnect, qr } = update;
             
             if (qr) {
-                console.log('📱 QR Code gerado! Escaneie com seu WhatsApp:');
-                console.log('\n' + '='.repeat(50));
+                console.log('📱 QR Code gerado! Acesse o painel web para escanear');
+                
+                currentQRCode = qr;
+                addLog('QR_CODE_GERADO', 'QR Code disponível no painel web');
                 
                 try {
                     const QRCode = require('qrcode-terminal');
                     QRCode.generate(qr, { small: true });
                 } catch (error) {
-                    console.log('QR Code:', qr);
-                    console.log('💡 Instale qrcode-terminal: npm install qrcode-terminal');
+                    console.log('💡 QR Code disponível no painel web');
                 }
                 
-                console.log('='.repeat(50));
-                console.log('👆 Use o WhatsApp do seu celular para escanear');
+                console.log('👆 QR Code também disponível no painel web');
             }
             
             if (connection === 'close') {
                 whatsappReady = false;
+                currentQRCode = null;
                 const shouldReconnect = (lastDisconnect?.error instanceof Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
                 console.log('❌ Conexão fechada devido a:', lastDisconnect?.error);
                 addLog('WHATSAPP_DESCONECTADO', lastDisconnect?.error?.message || 'Motivo desconhecido');
@@ -366,6 +404,7 @@ async function startWhatsApp() {
             } else if (connection === 'open') {
                 console.log('✅ WhatsApp conectado com sucesso!');
                 whatsappReady = true;
+                currentQRCode = null;
                 addLog('WHATSAPP_CONECTADO', 'Conexão estabelecida');
                 checkGroup();
             }
@@ -627,33 +666,81 @@ app.get('/api/logs', (req, res) => {
     res.json(logs.slice(-50));
 });
 
-// Endpoint para testar webhook (desenvolvimento)
-app.post('/api/test-webhook', async (req, res) => {
-    if (process.env.NODE_ENV === 'production') {
-        return res.status(403).json({ error: 'Não disponível em produção' });
-    }
-    
+// Endpoint para QR Code
+app.get('/api/qrcode', (req, res) => {
+    res.json({
+        qrCode: currentQRCode,
+        hasQRCode: !!currentQRCode,
+        whatsappConnected: whatsappReady
+    });
+});
+
+// Endpoint para obter configurações
+app.get('/api/config', (req, res) => {
+    res.json({
+        groupId: config.groupId,
+        adminNumber: config.adminNumber,
+        welcomeMessage: config.welcomeMessage,
+        whatsappConnected: whatsappReady
+    });
+});
+
+// Endpoint para atualizar configurações
+app.post('/api/config', (req, res) => {
     try {
-        const testData = {
-            type: 'subscription.activated',
-            event: {
-                user: {
-                    firstName: 'Teste',
-                    lastName: 'Sistema',
-                    phone: '5511999999999',
-                    email: 'teste@exemplo.com'
-                },
-                subscription: {
-                    id: 'test-123',
-                    credits: 30
-                }
-            }
-        };
+        const { groupId, adminNumber, welcomeMessage } = req.body;
         
-        return res.json({ success: true, message: 'Webhook de teste processado', data: testData });
+        if (groupId) {
+            config.groupId = groupId.includes('@g.us') ? groupId : `${groupId}@g.us`;
+        }
+        
+        if (adminNumber) {
+            config.adminNumber = adminNumber.includes('@c.us') ? adminNumber : `${adminNumber}@c.us`;
+        }
+        
+        if (welcomeMessage) {
+            config.welcomeMessage = welcomeMessage;
+        }
+        
+        saveConfig();
+        addLog('CONFIG_UPDATED', `Grupo: ${config.groupId}, Admin: ${config.adminNumber}`);
+        
+        res.json({
+            success: true,
+            message: 'Configurações atualizadas com sucesso',
+            config: {
+                groupId: config.groupId,
+                adminNumber: config.adminNumber,
+                welcomeMessage: config.welcomeMessage
+            }
+        });
         
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        console.error('❌ Erro ao atualizar configurações:', error);
+        res.status(500).json({ error: 'Erro ao atualizar configurações' });
+    }
+});
+
+// Endpoint para listar grupos disponíveis
+app.get('/api/groups', async (req, res) => {
+    try {
+        if (!whatsappReady || !sock) {
+            return res.status(400).json({ error: 'WhatsApp não está conectado' });
+        }
+        
+        const groups = await sock.groupFetchAllParticipating();
+        const groupsList = Object.values(groups).map(group => ({
+            id: group.id,
+            name: group.subject,
+            participants: group.participants.length,
+            isAdmin: group.participants.some(p => p.id === sock.user.id && (p.admin === 'admin' || p.admin === 'superadmin'))
+        })).filter(group => group.isAdmin);
+        
+        res.json(groupsList);
+        
+    } catch (error) {
+        console.error('❌ Erro ao listar grupos:', error);
+        res.status(500).json({ error: 'Erro ao listar grupos' });
     }
 });
 
@@ -720,6 +807,7 @@ setInterval(async () => {
 
 const PORT = process.env.PORT || 3001;
 
+loadConfig();
 loadMembers();
 
 app.listen(PORT, () => {
@@ -737,6 +825,7 @@ app.listen(PORT, () => {
 startWhatsApp();
 
 setInterval(saveMembers, 5 * 60 * 1000);
+setInterval(saveConfig, 10 * 60 * 1000);
 
 setInterval(() => {
     if (logs.length > 200) {
@@ -767,6 +856,7 @@ process.on('SIGINT', async () => {
     console.log(`   🚫 Spam bloqueado: ${stats.spamBlocked}`);
     
     saveMembers();
+    saveConfig();
     addLog('SISTEMA_PARADO', 'Sistema encerrado pelo usuário');
     
     if (sock) {
