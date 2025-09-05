@@ -725,22 +725,120 @@ app.post('/api/config', (req, res) => {
 app.get('/api/groups', async (req, res) => {
     try {
         if (!whatsappReady || !sock) {
-            return res.status(400).json({ error: 'WhatsApp não está conectado' });
+            return res.status(400).json({ 
+                error: 'WhatsApp não está conectado',
+                connected: false 
+            });
         }
         
-        const groups = await sock.groupFetchAllParticipating();
-        const groupsList = Object.values(groups).map(group => ({
-            id: group.id,
-            name: group.subject,
-            participants: group.participants.length,
-            isAdmin: group.participants.some(p => p.id === sock.user.id && (p.admin === 'admin' || p.admin === 'superadmin'))
-        })).filter(group => group.isAdmin);
+        addLog('BUSCANDO_GRUPOS', 'Iniciando busca por grupos...');
         
-        res.json(groupsList);
+        let groupsList = [];
+        
+        try {
+            // Método 1: Tentar groupFetchAllParticipating
+            const groups = await sock.groupFetchAllParticipating();
+            
+            if (groups && Object.keys(groups).length > 0) {
+                for (const [groupId, groupData] of Object.entries(groups)) {
+                    try {
+                        // Verificar se é admin
+                        const myJid = sock.user?.id;
+                        let isAdmin = false;
+                        
+                        if (myJid && groupData.participants) {
+                            isAdmin = groupData.participants.some(participant => {
+                                return participant.id === myJid && 
+                                       (participant.admin === 'admin' || participant.admin === 'superadmin');
+                            });
+                        }
+                        
+                        groupsList.push({
+                            id: groupId,
+                            name: groupData.subject || 'Grupo sem nome',
+                            participants: groupData.participants ? groupData.participants.length : 0,
+                            isAdmin: isAdmin,
+                            description: groupData.desc || ''
+                        });
+                        
+                    } catch (err) {
+                        console.log(`Erro ao processar grupo ${groupId}:`, err.message);
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('Método groupFetchAllParticipating falhou:', error.message);
+            
+            // Método 2: Buscar grupos manualmente
+            try {
+                // Se o grupo atual está configurado, pelo menos mostrar ele
+                if (config.groupId) {
+                    try {
+                        const groupMetadata = await sock.groupMetadata(config.groupId);
+                        const myJid = sock.user?.id;
+                        
+                        let isAdmin = false;
+                        if (myJid && groupMetadata.participants) {
+                            isAdmin = groupMetadata.participants.some(p => 
+                                p.id === myJid && (p.admin === 'admin' || p.admin === 'superadmin')
+                            );
+                        }
+                        
+                        groupsList.push({
+                            id: config.groupId,
+                            name: groupMetadata.subject || 'Grupo Atual',
+                            participants: groupMetadata.participants ? groupMetadata.participants.length : 0,
+                            isAdmin: isAdmin,
+                            description: groupMetadata.desc || 'Grupo configurado no sistema'
+                        });
+                        
+                        addLog('GRUPO_ATUAL_ADICIONADO', `Grupo atual adicionado: ${groupMetadata.subject}`);
+                    } catch (err) {
+                        console.log('Erro ao buscar grupo atual:', err.message);
+                    }
+                }
+            } catch (err2) {
+                console.log('Método alternativo também falhou:', err2.message);
+            }
+        }
+        
+        // Filtrar apenas grupos onde é admin (se necessário)
+        const adminGroups = groupsList.filter(group => group.isAdmin);
+        
+        addLog('GRUPOS_ENCONTRADOS', `${groupsList.length} grupos total, ${adminGroups.length} onde é admin`);
+        
+        // Se não encontrou nenhum grupo onde é admin, mostrar todos
+        const finalGroups = adminGroups.length > 0 ? adminGroups : groupsList;
+        
+        res.json({
+            success: true,
+            total: groupsList.length,
+            adminGroups: adminGroups.length,
+            groups: finalGroups.sort((a, b) => a.name.localeCompare(b.name))
+        });
         
     } catch (error) {
-        console.error('❌ Erro ao listar grupos:', error);
-        res.status(500).json({ error: 'Erro ao listar grupos' });
+        console.error('❌ Erro geral ao listar grupos:', error);
+        addLog('ERRO_LISTAR_GRUPOS', error.message);
+        
+        // Fallback: retornar pelo menos o grupo configurado
+        const fallbackGroups = [];
+        if (config.groupId) {
+            fallbackGroups.push({
+                id: config.groupId,
+                name: 'Grupo Configurado',
+                participants: 0,
+                isAdmin: true,
+                description: 'Grupo atual do sistema'
+            });
+        }
+        
+        res.json({
+            success: false,
+            error: 'Erro ao buscar grupos',
+            groups: fallbackGroups,
+            fallback: true
+        });
     }
 });
 
