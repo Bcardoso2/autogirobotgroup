@@ -412,49 +412,86 @@ async function startWhatsApp() {
         
         sock.ev.on('creds.update', saveCreds);
         
-        // Sistema de moderação
+        // ==================== SISTEMA DE MODERAÇÃO CORRIGIDO ====================
         sock.ev.on('messages.upsert', async (m) => {
             const msg = m.messages[0];
             
             if (!msg || msg.key.fromMe || !msg.message) return;
             
             const isGroup = msg.key.remoteJid.endsWith('@g.us');
-            const isFromGroup = msg.key.remoteJid === formatGroupId(config.groupId);
             
-            if (!isGroup || !isFromGroup) return;
+            // Verificar se a mensagem é do grupo configurado (sempre usar config atual)
+            const currentGroupId = formatGroupId(config.groupId);
+            const isFromGroup = msg.key.remoteJid === currentGroupId;
+            
+            // Log para debug da moderação
+            console.log(`📨 Mensagem recebida:`);
+            console.log(`   Grupo: ${isGroup ? 'Sim' : 'Não'}`);
+            console.log(`   ID da mensagem: ${msg.key.remoteJid}`);
+            console.log(`   Grupo configurado: ${currentGroupId}`);
+            console.log(`   É do grupo certo: ${isFromGroup ? 'Sim' : 'Não'}`);
+            
+            if (!isGroup || !isFromGroup) {
+                console.log(`❌ Mensagem ignorada - não é do grupo monitorado`);
+                return;
+            }
             
             let textMessage = msg.message?.extendedTextMessage?.text || 
                             msg.message?.conversation || 
                             msg.message?.imageMessage?.caption || 
                             msg.message?.videoMessage?.caption || '';
             
-            if (!textMessage) return;
+            if (!textMessage) {
+                console.log(`ℹ️ Mensagem sem texto - ignorada`);
+                return;
+            }
             
+            const originalText = textMessage;
             textMessage = textMessage.toLowerCase();
+            
+            console.log(`📝 Analisando mensagem: "${originalText.substring(0, 50)}..."`);
             
             let shouldDelete = false;
             let reason = '';
 
-            const foundBadWord = config.moderation.badWords.find(word => textMessage.includes(word.toLowerCase()));
+            // Verificar palavras proibidas
+            const foundBadWord = config.moderation.badWords.find(word => 
+                textMessage.includes(word.toLowerCase())
+            );
+            
             if (foundBadWord) {
                 shouldDelete = true;
                 reason = `Palavra proibida encontrada: ${foundBadWord}`;
+                console.log(`🚫 Palavra proibida detectada: ${foundBadWord}`);
             }
             
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
-            const foundLinks = textMessage.match(urlRegex);
-            if (!shouldDelete && foundLinks) {
-                const isBlocked = foundLinks.some(url => {
-                    return config.moderation.blockedLinkHosts.some(host => url.toLowerCase().includes(host.toLowerCase()));
-                });
-                if (isBlocked) {
-                    shouldDelete = true;
-                    reason = `Link externo não permitido encontrado`;
+            // Verificar links
+            if (!shouldDelete) {
+                const urlRegex = /(https?:\/\/[^\s]+)/g;
+                const foundLinks = textMessage.match(urlRegex);
+                
+                if (foundLinks) {
+                    console.log(`🔗 Links encontrados: ${foundLinks.join(', ')}`);
+                    
+                    const isBlocked = foundLinks.some(url => {
+                        return config.moderation.blockedLinkHosts.some(host => 
+                            url.toLowerCase().includes(host.toLowerCase())
+                        );
+                    });
+                    
+                    if (isBlocked) {
+                        shouldDelete = true;
+                        reason = `Link externo não permitido encontrado`;
+                        console.log(`🚫 Link bloqueado detectado`);
+                    }
                 }
             }
 
             if (shouldDelete) {
+                console.log(`🗑️ Removendo mensagem: ${reason}`);
+                
                 try {
+                    // Deletar a mensagem para todos
                     await sock.sendMessage(msg.key.remoteJid, {
                         delete: {
                             remoteJid: msg.key.remoteJid,
@@ -464,11 +501,22 @@ async function startWhatsApp() {
                         }
                     });
                     
+                    console.log(`✅ Mensagem removida com sucesso`);
+                    
+                    // Aguardar antes de enviar aviso
                     await new Promise(resolve => setTimeout(resolve, 1000));
                     
-                    await sock.sendMessage(msg.key.participant, { 
-                        text: config.moderation.warnMessage 
-                    });
+                    // Notificar o usuário no privado
+                    if (msg.key.participant) {
+                        try {
+                            await sock.sendMessage(msg.key.participant, { 
+                                text: config.moderation.warnMessage 
+                            });
+                            console.log(`📨 Aviso enviado para ${msg.key.participant}`);
+                        } catch (warnError) {
+                            console.log(`❌ Erro ao enviar aviso: ${warnError.message}`);
+                        }
+                    }
 
                     addLog('MENSAGEM_REMOVIDA', `Mensagem de ${msg.key.participant} removida. Motivo: ${reason}`);
                     stats.messagesDeleted++;
@@ -476,8 +524,11 @@ async function startWhatsApp() {
                     stats.spamBlocked++;
                     
                 } catch (error) {
+                    console.log(`❌ Erro ao remover mensagem: ${error.message}`);
                     addLog('ERRO_REMOVER_MSG', `Não foi possível remover mensagem de ${msg.key.participant}. Erro: ${error.message}`);
                 }
+            } else {
+                console.log(`✅ Mensagem aprovada`);
             }
         });
         
@@ -494,7 +545,8 @@ async function checkGroup() {
         const groupMetadata = await sock.groupMetadata(groupJid);
         console.log(`📋 Grupo encontrado: ${groupMetadata.subject}`);
         console.log(`👥 Participantes: ${groupMetadata.participants.length}`);
-        addLog('GRUPO_VERIFICADO', `${groupMetadata.subject} - ${groupMetadata.participants.length} participantes`);
+        console.log(`🛡️ Moderação ativa para: ${groupMetadata.subject}`);
+        addLog('GRUPO_VERIFICADO', `${groupMetadata.subject} - ${groupMetadata.participants.length} participantes - Moderação ativa`);
     } catch (error) {
         console.error('❌ Erro ao verificar grupo:', error.message);
         addLog('ERRO_GRUPO', `Erro ao verificar grupo: ${error.message}`);
@@ -685,10 +737,12 @@ app.get('/api/config', (req, res) => {
     });
 });
 
-// Endpoint para atualizar configurações
+// Endpoint para atualizar configurações (CORRIGIDO)
 app.post('/api/config', (req, res) => {
     try {
         const { groupId, adminNumber, welcomeMessage } = req.body;
+        
+        const oldGroupId = config.groupId;
         
         if (groupId) {
             config.groupId = groupId.includes('@g.us') ? groupId : `${groupId}@g.us`;
@@ -702,6 +756,17 @@ app.post('/api/config', (req, res) => {
             config.welcomeMessage = welcomeMessage;
         }
         
+        // Se mudou o grupo, atualizar logs
+        if (oldGroupId !== config.groupId) {
+            addLog('GRUPO_ALTERADO', `Grupo alterado de ${oldGroupId} para ${config.groupId}`);
+            console.log(`🔄 Grupo alterado para: ${config.groupId}`);
+            
+            // Verificar novo grupo se WhatsApp estiver conectado
+            if (whatsappReady && sock) {
+                setTimeout(checkGroup, 2000);
+            }
+        }
+        
         saveConfig();
         addLog('CONFIG_UPDATED', `Grupo: ${config.groupId}, Admin: ${config.adminNumber}`);
         
@@ -712,7 +777,8 @@ app.post('/api/config', (req, res) => {
                 groupId: config.groupId,
                 adminNumber: config.adminNumber,
                 welcomeMessage: config.welcomeMessage
-            }
+            },
+            groupChanged: oldGroupId !== config.groupId
         });
         
     } catch (error) {
@@ -721,7 +787,7 @@ app.post('/api/config', (req, res) => {
     }
 });
 
-// Endpoint para listar grupos disponíveis
+// Endpoint para listar grupos disponíveis (CORRIGIDO)
 app.get('/api/groups', async (req, res) => {
     try {
         if (!whatsappReady || !sock) {
@@ -736,8 +802,11 @@ app.get('/api/groups', async (req, res) => {
         let groupsList = [];
         
         try {
-            // Método 1: Tentar groupFetchAllParticipating
+            // Buscar grupos via groupFetchAllParticipating
+            console.log('🔍 Buscando grupos...');
             const groups = await sock.groupFetchAllParticipating();
+            
+            console.log(`📋 Encontrados ${Object.keys(groups || {}).length} grupos`);
             
             if (groups && Object.keys(groups).length > 0) {
                 for (const [groupId, groupData] of Object.entries(groups)) {
@@ -748,18 +817,22 @@ app.get('/api/groups', async (req, res) => {
                         
                         if (myJid && groupData.participants) {
                             isAdmin = groupData.participants.some(participant => {
-                                return participant.id === myJid && 
+                                const participantId = participant.id || participant.jid;
+                                return participantId === myJid && 
                                        (participant.admin === 'admin' || participant.admin === 'superadmin');
                             });
                         }
                         
-                        groupsList.push({
+                        const groupInfo = {
                             id: groupId,
                             name: groupData.subject || 'Grupo sem nome',
                             participants: groupData.participants ? groupData.participants.length : 0,
                             isAdmin: isAdmin,
                             description: groupData.desc || ''
-                        });
+                        };
+                        
+                        groupsList.push(groupInfo);
+                        console.log(`📱 ${groupInfo.name} (${groupInfo.participants} membros) - Admin: ${isAdmin ? 'SIM' : 'NÃO'}`);
                         
                     } catch (err) {
                         console.log(`Erro ao processar grupo ${groupId}:`, err.message);
@@ -769,40 +842,35 @@ app.get('/api/groups', async (req, res) => {
         } catch (error) {
             console.log('Método groupFetchAllParticipating falhou:', error.message);
             
-            // Método 2: Buscar grupos manualmente
-            try {
-                // Se o grupo atual está configurado, pelo menos mostrar ele
-                if (config.groupId) {
-                    try {
-                        const groupMetadata = await sock.groupMetadata(config.groupId);
-                        const myJid = sock.user?.id;
-                        
-                        let isAdmin = false;
-                        if (myJid && groupMetadata.participants) {
-                            isAdmin = groupMetadata.participants.some(p => 
-                                p.id === myJid && (p.admin === 'admin' || p.admin === 'superadmin')
-                            );
-                        }
-                        
-                        groupsList.push({
-                            id: config.groupId,
-                            name: groupMetadata.subject || 'Grupo Atual',
-                            participants: groupMetadata.participants ? groupMetadata.participants.length : 0,
-                            isAdmin: isAdmin,
-                            description: groupMetadata.desc || 'Grupo configurado no sistema'
-                        });
-                        
-                        addLog('GRUPO_ATUAL_ADICIONADO', `Grupo atual adicionado: ${groupMetadata.subject}`);
-                    } catch (err) {
-                        console.log('Erro ao buscar grupo atual:', err.message);
+            // Fallback: mostrar pelo menos o grupo configurado
+            if (config.groupId) {
+                try {
+                    const groupMetadata = await sock.groupMetadata(config.groupId);
+                    const myJid = sock.user?.id;
+                    
+                    let isAdmin = false;
+                    if (myJid && groupMetadata.participants) {
+                        isAdmin = groupMetadata.participants.some(p => 
+                            p.id === myJid && (p.admin === 'admin' || p.admin === 'superadmin')
+                        );
                     }
+                    
+                    groupsList.push({
+                        id: config.groupId,
+                        name: groupMetadata.subject || 'Grupo Atual',
+                        participants: groupMetadata.participants ? groupMetadata.participants.length : 0,
+                        isAdmin: isAdmin,
+                        description: 'Grupo atualmente configurado no sistema'
+                    });
+                    
+                    addLog('GRUPO_ATUAL_ADICIONADO', `Grupo atual adicionado: ${groupMetadata.subject}`);
+                } catch (err) {
+                    console.log('Erro ao buscar grupo atual:', err.message);
                 }
-            } catch (err2) {
-                console.log('Método alternativo também falhou:', err2.message);
             }
         }
         
-        // Filtrar apenas grupos onde é admin (se necessário)
+        // Filtrar apenas grupos onde é admin
         const adminGroups = groupsList.filter(group => group.isAdmin);
         
         addLog('GRUPOS_ENCONTRADOS', `${groupsList.length} grupos total, ${adminGroups.length} onde é admin`);
@@ -821,7 +889,7 @@ app.get('/api/groups', async (req, res) => {
         console.error('❌ Erro geral ao listar grupos:', error);
         addLog('ERRO_LISTAR_GRUPOS', error.message);
         
-        // Fallback: retornar pelo menos o grupo configurado
+        // Fallback final
         const fallbackGroups = [];
         if (config.groupId) {
             fallbackGroups.push({
@@ -838,6 +906,102 @@ app.get('/api/groups', async (req, res) => {
             error: 'Erro ao buscar grupos',
             groups: fallbackGroups,
             fallback: true
+        });
+    }
+});
+
+// ==================== ENDPOINTS DE DEBUG E TESTE ====================
+
+// Endpoint para testar moderação
+app.post('/api/test-moderation', async (req, res) => {
+    try {
+        if (!whatsappReady || !sock) {
+            return res.status(400).json({ error: 'WhatsApp não está conectado' });
+        }
+        
+        const { message } = req.body;
+        
+        if (!message) {
+            return res.status(400).json({ error: 'Mensagem é obrigatória' });
+        }
+        
+        const groupJid = formatGroupId(config.groupId);
+        
+        // Enviar mensagem de teste no grupo
+        await sock.sendMessage(groupJid, { 
+            text: `🧪 TESTE DE MODERAÇÃO: ${message}\n\n(Esta é uma mensagem de teste do sistema)` 
+        });
+        
+        addLog('TESTE_MODERACAO', `Mensagem de teste enviada: ${message}`);
+        
+        res.json({
+            success: true,
+            message: 'Mensagem de teste enviada',
+            groupId: config.groupId,
+            testMessage: message
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro no teste de moderação:', error);
+        res.status(500).json({ error: 'Erro ao enviar mensagem de teste' });
+    }
+});
+
+// Endpoint para debug da moderação
+app.get('/api/debug/moderation', (req, res) => {
+    res.json({
+        moderationConfig: config.moderation,
+        currentGroupId: config.groupId,
+        whatsappReady,
+        stats: {
+            messagesDeleted: stats.messagesDeleted,
+            usersWarned: stats.usersWarned,
+            spamBlocked: stats.spamBlocked
+        }
+    });
+});
+
+// Endpoint para debug do WhatsApp
+app.get('/api/debug/whatsapp', async (req, res) => {
+    try {
+        const debug = {
+            whatsappReady,
+            sockExists: !!sock,
+            userInfo: sock?.user || null,
+            configGroupId: config.groupId,
+            timestamp: new Date().toISOString()
+        };
+        
+        if (whatsappReady && sock) {
+            try {
+                const groups = await sock.groupFetchAllParticipating();
+                debug.groupsCount = Object.keys(groups || {}).length;
+                debug.groupsMethod = 'groupFetchAllParticipating';
+            } catch (error) {
+                debug.groupsError = error.message;
+            }
+            
+            if (config.groupId) {
+                try {
+                    const groupMeta = await sock.groupMetadata(config.groupId);
+                    debug.currentGroup = {
+                        id: groupMeta.id,
+                        name: groupMeta.subject,
+                        participants: groupMeta.participants.length
+                    };
+                } catch (error) {
+                    debug.currentGroupError = error.message;
+                }
+            }
+        }
+        
+        res.json(debug);
+        
+    } catch (error) {
+        res.status(500).json({
+            error: error.message,
+            whatsappReady,
+            sockExists: !!sock
         });
     }
 });
@@ -915,9 +1079,14 @@ app.listen(PORT, () => {
     console.log(`📡 Webhook URL: http://localhost:${PORT}/webhook/hubla`);
     console.log(`📊 API Status: http://localhost:${PORT}/api/status`);
     console.log(`🎯 Grupo: ${config.groupId}`);
+    console.log(`🛡️ Moderação ativa`);
+    console.log('=====================================');
+    console.log('🧪 Para testar moderação:');
+    console.log('   POST /api/test-moderation');
+    console.log('   GET /api/debug/moderation');
     console.log('=====================================');
     
-    addLog('SISTEMA_INICIADO', `Sistema rodando na porta ${PORT}`);
+    addLog('SISTEMA_INICIADO', `Sistema rodando na porta ${PORT} - Moderação ativa`);
 });
 
 startWhatsApp();
