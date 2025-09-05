@@ -79,6 +79,242 @@
             font-size: 0.9rem;
         }
 
+        /* Config Button */
+        .config-button {
+            position: fixed;
+            top: 2rem;
+            right: 2rem;
+            background: var(--yellow);
+            color: var(--navy-blue);
+            border: none;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(251, 191, 36, 0.3);
+            transition: all 0.3s ease;
+            z-index: 1001;
+        }
+
+        .config-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
+        }
+
+        /* QR Code Section */
+        .qr-section {
+            text-align: center;
+            padding: 2rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 16px;
+            border: 2px dashed var(--yellow);
+            margin: 2rem 0;
+            animation: pulseBorder 2s infinite;
+        }
+
+        .qr-section.hidden {
+            display: none;
+        }
+
+        .qr-code {
+            background: white;
+            padding: 1rem;
+            border-radius: 12px;
+            display: inline-block;
+            margin: 1rem 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .qr-code img {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .qr-instructions {
+            color: var(--gray-300);
+            font-size: 0.9rem;
+            line-height: 1.6;
+            margin-top: 1rem;
+        }
+
+        .qr-steps {
+            text-align: left;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+
+        .qr-steps li {
+            margin: 0.5rem 0;
+            color: var(--gray-300);
+        }
+
+        @keyframes pulseBorder {
+            0%, 100% { border-color: var(--yellow); }
+            50% { border-color: var(--white); }
+        }
+
+        /* Config Modal */
+        .config-section {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--navy-blue);
+            border: 2px solid var(--yellow);
+            border-radius: 16px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            z-index: 1002;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+
+        .config-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1001;
+            display: none;
+        }
+
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--gray-600);
+            padding-bottom: 1rem;
+        }
+
+        .config-header h3 {
+            color: var(--yellow);
+            margin: 0;
+        }
+
+        .close-config {
+            background: none;
+            border: none;
+            color: var(--gray-300);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+
+        .close-config:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--yellow);
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group label {
+            display: block;
+            color: var(--white);
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--gray-600);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--white);
+            font-size: 0.9rem;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: var(--yellow);
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+        }
+
+        .form-group small {
+            display: block;
+            color: var(--gray-400);
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        .group-selection {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .group-selection select {
+            flex: 1;
+        }
+
+        .refresh-groups {
+            background: var(--yellow);
+            color: var(--navy-blue);
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .refresh-groups:hover {
+            background: var(--dark-yellow);
+        }
+
+        .form-actions {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .save-config {
+            flex: 1;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .save-config:hover {
+            background: #059669;
+        }
+
+        .cancel-config {
+            background: var(--error);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .cancel-config:hover {
+            background: #dc2626;
+        }
+
         /* Alertas */
         .alerts-section {
             margin-bottom: 2rem;
@@ -491,6 +727,14 @@
                 height: 50px;
                 font-size: 1.25rem;
             }
+
+            .config-button {
+                top: 1rem;
+                right: 1rem;
+                width: 40px;
+                height: 40px;
+                font-size: 1rem;
+            }
         }
 
         @media (max-width: 480px) {
@@ -510,6 +754,9 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Config Button -->
+        <button class="config-button" onclick="toggleConfig()" title="Configurações">⚙️</button>
+
         <!-- Header -->
         <header class="header">
             <h1 class="header-title">Sistema Hubla + WhatsApp</h1>
@@ -522,6 +769,26 @@
 
         <!-- Alerts -->
         <section id="alerts" class="alerts-section"></section>
+
+        <!-- QR Code Section -->
+        <section id="qrSection" class="qr-section hidden">
+            <h3>📱 Conectar WhatsApp</h3>
+            <p>Escaneie o QR Code com seu WhatsApp para conectar</p>
+            
+            <div id="qrCode" class="qr-code">
+                <!-- QR Code será inserido aqui -->
+            </div>
+            
+            <div class="qr-instructions">
+                <p><strong>Como escanear:</strong></p>
+                <ol class="qr-steps">
+                    <li>Abra o WhatsApp no seu celular</li>
+                    <li>Toque no menu (⋮) e vá em "Dispositivos conectados"</li>
+                    <li>Toque em "Conectar dispositivo"</li>
+                    <li>Escaneie o código QR acima</li>
+                </ol>
+            </div>
+        </section>
 
         <!-- Statistics -->
         <section class="stats-grid">
@@ -620,6 +887,46 @@
         </section>
     </div>
 
+    <!-- Config Modal -->
+    <div class="config-section" id="configSection">
+        <div class="config-header">
+            <h3>⚙️ Configurações do Sistema</h3>
+            <button class="close-config" onclick="toggleConfig()">✕</button>
+        </div>
+        
+        <form id="configForm" class="config-form">
+            <div class="form-group">
+                <label>Seu Número (Admin):</label>
+                <input type="text" id="adminNumber" placeholder="5511999999999" />
+                <small>Número que receberá as notificações</small>
+            </div>
+            
+            <div class="form-group">
+                <label>ID do Grupo:</label>
+                <div class="group-selection">
+                    <select id="groupSelect">
+                        <option value="">Selecione um grupo...</option>
+                    </select>
+                    <button type="button" onclick="loadGroups()" class="refresh-groups">🔄</button>
+                </div>
+                <input type="text" id="customGroupId" placeholder="Ou digite o ID manualmente" />
+                <small>Grupo onde o bot irá gerenciar os membros</small>
+            </div>
+            
+            <div class="form-group">
+                <label>Mensagem de Boas-vindas:</label>
+                <textarea id="welcomeMessage" rows="3" placeholder="Digite a mensagem de boas-vindas..."></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="save-config">💾 Salvar Configurações</button>
+                <button type="button" onclick="toggleConfig()" class="cancel-config">❌ Cancelar</button>
+            </div>
+        </form>
+    </div>
+
+    <div class="config-overlay" id="configOverlay" onclick="toggleConfig()"></div>
+
     <!-- Floating Action Button -->
     <button class="fab" onclick="loadData()" title="Atualizar dados">
         🔄
@@ -627,7 +934,7 @@
 
     <script>
         // Configuração da API
-        const API_BASE_URL = 'http://localhost:3001/api';
+        const API_BASE_URL = window.location.origin + '/api';
         
         // Estado da aplicação
         let isLoading = false;
@@ -643,7 +950,8 @@
                 await Promise.all([
                     loadSystemStatus(),
                     loadLogs(),
-                    loadMembers()
+                    loadMembers(),
+                    loadQRCode()
                 ]);
                 
                 updateLastUpdateTime();
@@ -694,10 +1002,53 @@
             
             // Webhook URL
             document.getElementById('webhookUrl').textContent = 
-                `${window.location.protocol}//${window.location.hostname}:3001/webhook/hubla`;
+                `${window.location.origin}/webhook/hubla`;
             
             // Atualizar alertas
             updateAlerts(status);
+        }
+        
+        // Carregar QR Code
+        async function loadQRCode() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/qrcode`);
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                const qrSection = document.getElementById('qrSection');
+                const qrCodeDiv = document.getElementById('qrCode');
+                
+                if (data.hasQRCode && data.qrCode) {
+                    // Mostrar seção do QR Code
+                    qrSection.classList.remove('hidden');
+                    
+                    // Gerar QR Code usando biblioteca externa
+                    qrCodeDiv.innerHTML = '';
+                    
+                    // Usar QRCode.js se disponível, senão mostrar o código
+                    if (typeof QRCode !== 'undefined') {
+                        new QRCode(qrCodeDiv, {
+                            text: data.qrCode,
+                            width: 256,
+                            height: 256,
+                            colorDark: '#000000',
+                            colorLight: '#ffffff',
+                        });
+                    } else {
+                        // Fallback: usar serviço online para gerar QR Code
+                        const qrImg = document.createElement('img');
+                        qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=256x256&data=${encodeURIComponent(data.qrCode)}`;
+                        qrImg.alt = 'QR Code WhatsApp';
+                        qrCodeDiv.appendChild(qrImg);
+                    }
+                } else {
+                    // Esconder seção do QR Code se WhatsApp conectado
+                    qrSection.classList.add('hidden');
+                }
+                
+            } catch (error) {
+                console.error('Erro ao carregar QR Code:', error);
+            }
         }
         
         // Carregar logs
@@ -786,7 +1137,7 @@
             if (!status.whatsappConnected) {
                 alerts.push({
                     type: 'error',
-                    message: '⚠️ WhatsApp desconectado. Verifique o QR Code no console do servidor.'
+                    message: '⚠️ WhatsApp desconectado. Escaneie o QR Code para conectar.'
                 });
             }
             
@@ -840,6 +1191,123 @@
             document.getElementById('lastUpdate').textContent = 
                 new Date().toLocaleTimeString('pt-BR');
         }
+        
+        // ==================== CONFIGURAÇÕES ====================
+        
+        // Funções para gerenciar configurações
+        function toggleConfig() {
+            const section = document.getElementById('configSection');
+            const overlay = document.getElementById('configOverlay');
+            
+            if (section.style.display === 'none' || !section.style.display) {
+                loadCurrentConfig();
+                section.style.display = 'block';
+                overlay.style.display = 'block';
+            } else {
+                section.style.display = 'none';
+                overlay.style.display = 'none';
+            }
+        }
+
+        async function loadCurrentConfig() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/config`);
+                const config = await response.json();
+                
+                document.getElementById('adminNumber').value = config.adminNumber.replace('@c.us', '');
+                document.getElementById('customGroupId').value = config.groupId;
+                document.getElementById('welcomeMessage').value = config.welcomeMessage;
+                
+            } catch (error) {
+                console.error('Erro ao carregar configurações:', error);
+            }
+        }
+
+        async function loadGroups() {
+            try {
+                const button = document.querySelector('.refresh-groups');
+                button.textContent = '⏳';
+                button.disabled = true;
+                
+                const response = await fetch(`${API_BASE_URL}/groups`);
+                const groups = await response.json();
+                
+                const select = document.getElementById('groupSelect');
+                select.innerHTML = '<option value="">Selecione um grupo...</option>';
+                
+                groups.forEach(group => {
+                    const option = document.createElement('option');
+                    option.value = group.id;
+                    option.textContent = `${group.name} (${group.participants} membros)`;
+                    select.appendChild(option);
+                });
+                
+                button.textContent = '🔄';
+                button.disabled = false;
+                
+            } catch (error) {
+                console.error('Erro ao carregar grupos:', error);
+                showAlert('Erro ao carregar grupos. WhatsApp conectado?', 'error');
+                
+                const button = document.querySelector('.refresh-groups');
+                button.textContent = '🔄';
+                button.disabled = false;
+            }
+        }
+
+        // Event listener para seleção de grupo
+        document.getElementById('groupSelect').addEventListener('change', function() {
+            if (this.value) {
+                document.getElementById('customGroupId').value = this.value;
+            }
+        });
+
+        // Event listener para o formulário
+        document.getElementById('configForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const adminNumber = document.getElementById('adminNumber').value.trim();
+            const groupId = document.getElementById('customGroupId').value.trim() || document.getElementById('groupSelect').value;
+            const welcomeMessage = document.getElementById('welcomeMessage').value.trim();
+            
+            if (!adminNumber) {
+                showAlert('Digite seu número de telefone', 'error');
+                return;
+            }
+            
+            if (!groupId) {
+                showAlert('Selecione ou digite o ID do grupo', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/config`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        adminNumber,
+                        groupId,
+                        welcomeMessage: welcomeMessage || 'Bem-vindo ao grupo!'
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showAlert('Configurações salvas com sucesso!', 'success');
+                    toggleConfig();
+                    loadData();
+                } else {
+                    showAlert('Erro ao salvar configurações', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Erro ao salvar configurações:', error);
+                showAlert('Erro ao salvar configurações', 'error');
+            }
+        });
         
         // Auto-refresh
         function startAutoRefresh() {
