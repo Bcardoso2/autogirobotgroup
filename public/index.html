@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Hubla + WhatsApp</title>
+    <style>
+        :root {
+            --navy-blue: #1e293b;
+            --dark-navy: #0f172a;
+            --light-navy: #334155;
+            --yellow: #fbbf24;
+            --light-yellow: #fef3c7;
+            --dark-yellow: #f59e0b;
+            --white: #ffffff;
+            --gray-50: #f8fafc;
+            --gray-100: #f1f5f9;
+            --gray-200: #e2e8f0;
+            --gray-300: #cbd5e1;
+            --gray-400: #94a3b8;
+            --gray-500: #64748b;
+            --gray-600: #475569;
+            --success: #10b981;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, var(--navy-blue) 0%, var(--dark-navy) 100%);
+            color: var(--white);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        /* Layout Principal */
+        .app-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header-title {
+            font-size: 3rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--yellow) 0%, var(--white) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .header-subtitle {
+            font-size: 1.2rem;
+            color: var(--gray-300);
+            margin-bottom: 1rem;
+        }
+
+        .header-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+        }
+
+        /* Alertas */
+        .alerts-section {
+            margin-bottom: 2rem;
+        }
+
+        .alert {
+            padding: 1rem 1.5rem;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            border-left: 4px solid;
+            animation: slideIn 0.5s ease;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--success);
+            color: var(--success);
+        }
+
+        .alert-warning {
+            background: rgba(251, 191, 36, 0.1);
+            border-color: var(--yellow);
+            color: var(--yellow);
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: var(--error);
+            color: var(--error);
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Grid de Estatísticas */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, var(--yellow), var(--white));
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--yellow);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--yellow);
+            margin-bottom: 0.5rem;
+            line-height: 1;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--gray-300);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 500;
+        }
+
+        /* Cards de Conteúdo */
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .content-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .content-card:hover {
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .card-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: var(--yellow);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .card-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--white);
+        }
+
+        /* Status Indicators */
+        .status-grid {
+            display: grid;
+            gap: 1rem;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .status-label {
+            font-weight: 500;
+            color: var(--gray-300);
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-online {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        .status-warning {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--yellow);
+        }
+
+        .status-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* Webhook URL */
+        .webhook-url {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: var(--gray-300);
+            word-break: break-all;
+            margin-top: 1rem;
+        }
+
+        /* Logs e Membros */
+        .full-width-card {
+            grid-column: 1 / -1;
+        }
+
+        .content-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .content-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .content-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .content-container::-webkit-scrollbar-thumb {
+            background: var(--gray-500);
+            border-radius: 3px;
+        }
+
+        /* Log Items */
+        .log-item {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s ease;
+        }
+
+        .log-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+        }
+
+        .log-time {
+            font-size: 0.8rem;
+            color: var(--gray-400);
+            margin-bottom: 0.25rem;
+        }
+
+        .log-action {
+            font-weight: 600;
+            color: var(--yellow);
+            margin-bottom: 0.25rem;
+        }
+
+        .log-details {
+            font-size: 0.9rem;
+            color: var(--gray-300);
+        }
+
+        /* Member Items */
+        .member-item {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            transition: background 0.2s ease;
+        }
+
+        .member-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .member-item:last-child {
+            border-bottom: none;
+        }
+
+        .member-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--white);
+            margin-bottom: 0.5rem;
+        }
+
+        .member-details {
+            font-size: 0.9rem;
+            color: var(--gray-300);
+            line-height: 1.5;
+            margin-bottom: 0.75rem;
+        }
+
+        .member-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-active {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-expiring {
+            background: rgba(251, 191, 36, 0.2);
+            color: var(--yellow);
+        }
+
+        .status-expired {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--error);
+        }
+
+        /* Empty State */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--gray-400);
+        }
+
+        .empty-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        /* Loading */
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top: 2px solid var(--yellow);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Floating Action Button */
+        .fab {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--yellow), var(--dark-yellow));
+            border: none;
+            border-radius: 50%;
+            color: var(--navy-blue);
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(251, 191, 36, 0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 35px rgba(251, 191, 36, 0.4);
+        }
+
+        .fab:active {
+            transform: scale(0.95);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .app-container {
+                padding: 1rem;
+            }
+
+            .header-title {
+                font-size: 2rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+
+            .content-grid {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .stat-card {
+                padding: 1.5rem;
+            }
+
+            .stat-number {
+                font-size: 2rem;
+            }
+
+            .content-card {
+                padding: 1.5rem;
+            }
+
+            .fab {
+                bottom: 1.5rem;
+                right: 1.5rem;
+                width: 50px;
+                height: 50px;
+                font-size: 1.25rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header-title {
+                font-size: 1.75rem;
+            }
+
+            .stat-number {
+                font-size: 1.75rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="header-title">Sistema Hubla + WhatsApp</h1>
+            <p class="header-subtitle">Painel de Controle Moderno</p>
+            <div class="header-status">
+                <span>Última atualização:</span>
+                <span id="lastUpdate">Carregando...</span>
+            </div>
+        </header>
+
+        <!-- Alerts -->
+        <section id="alerts" class="alerts-section"></section>
+
+        <!-- Statistics -->
+        <section class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-number" id="totalMembers">-</div>
+                <div class="stat-label">Membros Ativos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="membersAdded">-</div>
+                <div class="stat-label">Adicionados</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="membersRemoved">-</div>
+                <div class="stat-label">Removidos</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="webhooksReceived">-</div>
+                <div class="stat-label">Webhooks</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="messagesDeleted">-</div>
+                <div class="stat-label">Mensagens Removidas</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="spamBlocked">-</div>
+                <div class="stat-label">Spam Bloqueado</div>
+            </div>
+        </section>
+
+        <!-- Content Grid -->
+        <section class="content-grid">
+            <!-- System Status -->
+            <div class="content-card">
+                <div class="card-header">
+                    <div class="card-icon">⚡</div>
+                    <h3 class="card-title">Status do Sistema</h3>
+                </div>
+                
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">WhatsApp</span>
+                        <span id="whatsappStatus" class="status-indicator status-offline">
+                            <span class="status-dot"></span>
+                            Offline
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Webhook</span>
+                        <span id="webhookStatus" class="status-indicator status-offline">
+                            <span class="status-dot"></span>
+                            Não configurado
+                        </span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Uptime</span>
+                        <span class="status-indicator">
+                            <span id="uptime">-</span> min
+                        </span>
+                    </div>
+                </div>
+
+                <div class="webhook-url" id="webhookUrl">Carregando URL do webhook...</div>
+            </div>
+
+            <!-- Recent Logs -->
+            <div class="content-card">
+                <div class="card-header">
+                    <div class="card-icon">📋</div>
+                    <h3 class="card-title">Logs Recentes</h3>
+                </div>
+                
+                <div id="logsList" class="content-container">
+                    <div style="text-align: center; padding: 2rem;">
+                        <div class="loading"></div>
+                        <p style="margin-top: 1rem;">Carregando logs...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Members Section -->
+        <section class="content-grid">
+            <div class="content-card full-width-card">
+                <div class="card-header">
+                    <div class="card-icon">👥</div>
+                    <h3 class="card-title">Membros Ativos (<span id="membersCount">0</span>)</h3>
+                </div>
+                
+                <div id="membersList" class="content-container">
+                    <div style="text-align: center; padding: 2rem;">
+                        <div class="loading"></div>
+                        <p style="margin-top: 1rem;">Carregando membros...</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Floating Action Button -->
+    <button class="fab" onclick="loadData()" title="Atualizar dados">
+        🔄
+    </button>
+
+    <script>
+        // Configuração da API
+        const API_BASE_URL = 'http://localhost:3001/api';
+        
+        // Estado da aplicação
+        let isLoading = false;
+        let autoRefreshInterval;
+        
+        // Função principal para carregar dados
+        async function loadData() {
+            if (isLoading) return;
+            
+            isLoading = true;
+            
+            try {
+                await Promise.all([
+                    loadSystemStatus(),
+                    loadLogs(),
+                    loadMembers()
+                ]);
+                
+                updateLastUpdateTime();
+                
+            } catch (error) {
+                console.error('Erro ao carregar dados:', error);
+                showAlert('Erro ao conectar com o servidor. Verifique se o backend está rodando.', 'error');
+            } finally {
+                isLoading = false;
+            }
+        }
+        
+        // Carregar status do sistema
+        async function loadSystemStatus() {
+            const response = await fetch(`${API_BASE_URL}/status`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const status = await response.json();
+            
+            // Atualizar estatísticas
+            document.getElementById('totalMembers').textContent = status.totalMembers || 0;
+            document.getElementById('membersAdded').textContent = status.stats.activeMembersAdded || 0;
+            document.getElementById('membersRemoved').textContent = status.stats.membersRemoved || 0;
+            document.getElementById('webhooksReceived').textContent = status.stats.webhooksReceived || 0;
+            document.getElementById('messagesDeleted').textContent = status.stats.messagesDeleted || 0;
+            document.getElementById('spamBlocked').textContent = status.stats.spamBlocked || 0;
+            document.getElementById('uptime').textContent = status.stats.uptime || 0;
+            
+            // Status do WhatsApp
+            const whatsappStatus = document.getElementById('whatsappStatus');
+            if (status.whatsappConnected) {
+                whatsappStatus.innerHTML = '<span class="status-dot"></span>Online';
+                whatsappStatus.className = 'status-indicator status-online';
+            } else {
+                whatsappStatus.innerHTML = '<span class="status-dot"></span>Offline';
+                whatsappStatus.className = 'status-indicator status-offline';
+            }
+            
+            // Status do webhook
+            const webhookStatus = document.getElementById('webhookStatus');
+            if (status.webhookConfigured) {
+                webhookStatus.innerHTML = '<span class="status-dot"></span>Configurado';
+                webhookStatus.className = 'status-indicator status-online';
+            } else {
+                webhookStatus.innerHTML = '<span class="status-dot"></span>Não configurado';
+                webhookStatus.className = 'status-indicator status-warning';
+            }
+            
+            // Webhook URL
+            document.getElementById('webhookUrl').textContent = 
+                `${window.location.protocol}//${window.location.hostname}:3001/webhook/hubla`;
+            
+            // Atualizar alertas
+            updateAlerts(status);
+        }
+        
+        // Carregar logs
+        async function loadLogs() {
+            const response = await fetch(`${API_BASE_URL}/logs`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const logs = await response.json();
+            const container = document.getElementById('logsList');
+            
+            if (logs.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">📝</div>
+                        <p>Nenhum log disponível</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            logs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            container.innerHTML = logs.slice(0, 15).map(log => `
+                <div class="log-item">
+                    <div class="log-time">${formatDateTime(log.timestamp)}</div>
+                    <div class="log-action">${log.action}</div>
+                    <div class="log-details">${log.details}</div>
+                </div>
+            `).join('');
+        }
+        
+        // Carregar membros
+        async function loadMembers() {
+            const response = await fetch(`${API_BASE_URL}/members`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            
+            const members = await response.json();
+            const container = document.getElementById('membersList');
+            const count = document.getElementById('membersCount');
+            
+            count.textContent = members.length;
+            
+            if (members.length === 0) {
+                container.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">👥</div>
+                        <p>Nenhum membro ativo</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            members.sort((a, b) => a.daysRemaining - b.daysRemaining);
+            
+            container.innerHTML = members.map(member => {
+                let statusClass = 'status-active';
+                let statusText = 'Ativo';
+                
+                if (member.daysRemaining <= 0) {
+                    statusClass = 'status-expired';
+                    statusText = 'Expirado';
+                } else if (member.daysRemaining <= 3) {
+                    statusClass = 'status-expiring';
+                    statusText = 'Expirando';
+                }
+                
+                return `
+                    <div class="member-item">
+                        <div class="member-name">${member.name}</div>
+                        <div class="member-details">
+                            📱 ${member.phone}<br>
+                            📧 ${member.email || 'N/A'}<br>
+                            💳 ${member.credits} créditos | 📅 ${member.daysRemaining} dias restantes
+                        </div>
+                        <div class="member-status ${statusClass}">${statusText}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Atualizar alertas
+        function updateAlerts(status) {
+            const container = document.getElementById('alerts');
+            let alerts = [];
+            
+            if (!status.whatsappConnected) {
+                alerts.push({
+                    type: 'error',
+                    message: '⚠️ WhatsApp desconectado. Verifique o QR Code no console do servidor.'
+                });
+            }
+            
+            if (!status.webhookConfigured) {
+                alerts.push({
+                    type: 'warning',
+                    message: '🔧 Configure o HUBLA_WEBHOOK_SECRET para ativar os webhooks.'
+                });
+            }
+            
+            if (status.whatsappConnected && status.webhookConfigured) {
+                alerts.push({
+                    type: 'success',
+                    message: '✅ Sistema funcionando perfeitamente!'
+                });
+            }
+            
+            container.innerHTML = alerts.map(alert => `
+                <div class="alert alert-${alert.type}">${alert.message}</div>
+            `).join('');
+        }
+        
+        // Mostrar alerta temporário
+        function showAlert(message, type = 'error') {
+            const container = document.getElementById('alerts');
+            const alertId = 'temp-alert-' + Date.now();
+            
+            container.insertAdjacentHTML('afterbegin', `
+                <div id="${alertId}" class="alert alert-${type}">${message}</div>
+            `);
+            
+            setTimeout(() => {
+                const element = document.getElementById(alertId);
+                if (element) element.remove();
+            }, 5000);
+        }
+        
+        // Formatar data
+        function formatDateTime(dateString) {
+            return new Date(dateString).toLocaleString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+        
+        // Atualizar timestamp
+        function updateLastUpdateTime() {
+            document.getElementById('lastUpdate').textContent = 
+                new Date().toLocaleTimeString('pt-BR');
+        }
+        
+        // Auto-refresh
+        function startAutoRefresh() {
+            autoRefreshInterval = setInterval(loadData, 30000);
+        }
+        
+        function stopAutoRefresh() {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
+        }
+        
+        // Event listeners
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                stopAutoRefresh();
+            } else {
+                startAutoRefresh();
+                loadData();
+            }
+        });
+        
+        window.addEventListener('load', function() {
+            loadData();
+            startAutoRefresh();
+        });
+        
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                loadData();
+            }
+        });
+    </script>
+</body>
+</html>

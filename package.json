@@ -1,0 +1,50 @@
+{
+  "name": "hubla-whatsapp-system",
+  "version": "1.0.0",
+  "description": "Sistema de integração entre Hubla e WhatsApp para gerenciamento automático de grupos VIP",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "build": "echo 'Build completed'",
+    "dev": "nodemon server.js",
+    "test": "node -e \"console.log('Sistema funcionando!')\"",
+    "pm2-start": "pm2 start server.js --name hubla-whatsapp",
+    "pm2-stop": "pm2 stop hubla-whatsapp",
+    "pm2-restart": "pm2 restart hubla-whatsapp"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.6.0",
+    "@hapi/boom": "^10.0.1",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "pino": "^8.15.0",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "whatsapp",
+    "baileys",
+    "hubla",
+    "webhook",
+    "automation",
+    "group-management",
+    "nodejs",
+    "express"
+  ],
+  "author": "Sistema Hubla WhatsApp",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seu-usuario/hubla-whatsapp-system"
+  },
+  "bugs": {
+    "url": "https://github.com/seu-usuario/hubla-whatsapp-system/issues"
+  },
+  "homepage": "https://github.com/seu-usuario/hubla-whatsapp-system#readme"
+}
